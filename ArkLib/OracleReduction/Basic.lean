@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 
 /-!
-# OracleReduction.Basic — Conceptual Overview
+### OracleReduction.Basic — Conceptual Overview
 
 ## What is an Oracle Reduction?
 
@@ -22,7 +22,7 @@ This is the information-theoretic core of most modern SNARKs (FRI, PLONK, STARK,
 The `BCS transform` later replaces each oracle message with a Merkle commitment,
 turning an IOR into a non-interactive argument.
 
-## File Scope
+### File Scope
 
 `OracleReduction/Basic.lean` defines the **primitive building blocks** from which
 all concrete protocol specifications in this library are assembled:
