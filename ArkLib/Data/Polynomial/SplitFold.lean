@@ -162,71 +162,55 @@ lemma splitNth_def (n : ℕ) (f : 𝔽[X]) [inst : NeZero n] :
       have h₁' := h₁
       rw [←Nat.div_add_mod' e n, ←Nat.div_add_mod' b n] at h₁ h₂
       by_cases h' : e % n ≥ b % n
-      · have : e / n * n + e % n - (b / n * n + b % n) =
-               ((e / n - b / n) * n) + (e % n - b % n) := by
-        have : e / n * n + e % n - (b / n * n + b % n) =
-                e / n * n + e % n - b / n * n - b % n := by
-          omega
-        rw [this]
-        have : e / n * n + e % n - b / n * n = ((e / n) - (b / n)) * n + e % n := by
+      · have eq1 : e / n * n + e % n - (b / n * n + b % n) =
+                   e / n * n + e % n - b / n * n - b % n := by omega
+        rw [eq1] at h₁ h₂
+        have eq2 : e / n * n + e % n - b / n * n = ((e / n) - (b / n)) * n + e % n := by
           have : e / n * n + e % n - b / n * n = (e / n * n - b / n * n) + e % n :=
             Nat.sub_add_comm (Nat.mul_le_mul (Nat.div_le_div_right h₁') (by rfl))
           rw [this, ←Nat.sub_mul]
-        rw [this]
-        exact Nat.add_sub_assoc h' ((e / n - b / n) * n)
-      rw [
-        this, Nat.mul_add_mod_self_right,
-        Nat.mod_eq_of_lt (Nat.sub_lt_of_lt (Nat.mod_lt _ (by linarith)))
-      ] at h₂
-      omega
-      · simp only [ge_iff_le, not_le] at h'
-        have : e / n * n + e % n - (b / n * n + b % n) =
-               ((e / n - b / n - 1) * n) + (n - (b % n - e % n)) := by
-          have : e / n * n + e % n - (b / n * n + b % n) =
-                  e / n * n + e % n - b / n * n - b % n := by
-            omega
-          rw [this]
-          have : e / n * n + e % n - b / n * n = ((e / n) - (b / n)) * n + e % n := by
-            have : e / n * n + e % n - b / n * n = (e / n * n - b / n * n) + e % n :=
-              Nat.sub_add_comm (Nat.mul_le_mul (Nat.div_le_div_right h₁') (by rfl))
-            rw [this, ←Nat.sub_mul]
-          rw [this]
-          have : e / n - b / n = (e / n - b / n - 1) + 1 := by
-            refine Eq.symm (Nat.sub_add_cancel ?_)
-            rw [Nat.one_le_iff_ne_zero]
-            intros h
-            have h := Nat.le_of_sub_eq_zero h
-            nlinarith
-          rw (occs := .pos [1]) [this]
-          rw
-            [
-              right_distrib, one_mul, add_assoc,
-              Nat.add_sub_assoc (Nat.le_add_right_of_le (Nat.le_of_lt (Nat.mod_lt_of_lt h)))
-            ]
-          congr 1
-          grind
-        rw [this, Nat.mul_add_mod_self_right] at h₂
-        have {a : ℕ} : (n - a) % n = 0 ∧ a < n → a = 0 := by
-          intros h
-          rcases exists_eq_mul_left_of_dvd (Nat.dvd_of_mod_eq_zero h.1) with ⟨c, h'⟩
-          have : a = (1 - c)*n := by
-            have : n = a + c * n := by omega
-            have : n - c * n = a := by omega
-            rw [←this]
-            have : n = 1 * n := by rw [one_mul]
-            rewrite (occs := .pos [1]) [this]
-            exact Eq.symm (Nat.sub_mul 1 c n)
-          have h' := this ▸ h.2
-          rw [this]
-          have : 1 - c = 0 := by
-            have : n = 1 * n := by rw [one_mul]
-            rw (occs := .pos [2]) [this] at h'
-            have h' := Nat.lt_of_mul_lt_mul_right h'
-            omega
-          simp [this]
-        exfalso
-        have h₂ := this ⟨h₂, by apply Nat.sub_lt_of_lt; apply Nat.mod_lt; linarith⟩
+        rw [eq2] at h₂
+        have eq3 : ((e / n) - (b / n)) * n + e % n - b % n = ((e / n - b / n) * n) + (e % n - b % n) :=
+          Nat.add_sub_assoc h' ((e / n - b / n) * n)
+        rw [eq3] at h₂
+        rw [Nat.mul_add_mod_self_right] at h₂
+        rw [Nat.mod_eq_of_lt (Nat.sub_lt_of_lt (Nat.mod_lt _ (by linarith)))] at h₂
         omega
+      · simp only [ge_iff_le, not_le] at h'
+        have eq1 : e / n * n + e % n - (b / n * n + b % n) =
+                   e / n * n + e % n - b / n * n - b % n := by omega
+        rw [eq1] at h₁ h₂
+        have eq2 : e / n * n + e % n - b / n * n = ((e / n) - (b / n)) * n + e % n := by
+          have : e / n * n + e % n - b / n * n = (e / n * n - b / n * n) + e % n :=
+            Nat.sub_add_comm (Nat.mul_le_mul (Nat.div_le_div_right h₁') (by rfl))
+          rw [this, ←Nat.sub_mul]
+        rw [eq2] at h₂
+        have step1 : e / n - b / n = (e / n - b / n - 1) + 1 := by
+          refine Eq.symm (Nat.sub_add_cancel ?_)
+          rw [Nat.one_le_iff_ne_zero]
+          intros hz
+          have : e / n ≤ b / n := Nat.le_of_sub_eq_zero hz
+          nlinarith
+        rw (occs := .pos [1]) [step1] at eq2
+        rw [right_distrib, one_mul, add_assoc] at eq2
+        have : ((e / n - b / n - 1) + 1) * n = (e / n - b / n - 1) * n + n := by ring
+        rw [this] at eq2
+        have step2 : (e / n - b / n - 1) * n + n + e % n - b % n =
+                     ((e / n - b / n - 1) * n) + (n - (b % n - e % n)) := by
+          have : n + e % n = e % n + n := by ring
+          have : n + e % n - b % n = (n - (b % n - e % n)) + e % n := by
+            have bmod_le : b % n ≤ n := Nat.mod_lt b (by linarith)
+            omega
+          omega
+        rw [step2] at h₂
+        rw [Nat.mul_add_mod_self_right] at h₂
+        have {a : ℕ} : (n - a) % n = 0 ∧ a < n → a = 0 := by
+          intros ⟨hmod, hlt⟩
+          rcases exists_eq_mul_left_of_dvd (Nat.dvd_of_mod_eq_zero hmod) with ⟨c, hc⟩
+          have : a = (1 - c)*n := by omega
+          have : (1 - c) * n < n := this ▸ hlt
+          omega
+        exact this ⟨h₂, by apply Nat.sub_lt_of_lt; apply Nat.mod_lt; linarith⟩
     rw [this]
     exact Eq.symm (Nat.mod_eq_of_lt h)
   · intros h
@@ -383,17 +367,16 @@ lemma splitNth_two_eval_add (f : 𝔽[X]) (x : 𝔽) :
     simp [eval_add, hp, hq]
     ring
   | h_monomial n a =>
-    simp [splitNth_monomial, eval_monomial]
     rcases Nat.even_or_odd n with ⟨k, hk⟩ | ⟨k, hk⟩
     · -- even case: n = 2k
       subst hk
-      simp [splitNth_monomial_even]
+      simp [splitNth_monomial_even, eval_monomial]
       ring_nf
       simp [neg_pow, even_two_mul]
       ring
     · -- odd case: n = 2k + 1
       subst hk
-      simp [splitNth_monomial_odd]
+      simp [splitNth_monomial_odd, eval_monomial]
       ring_nf
       simp [neg_pow, Nat.odd_add, odd_two_mul_add_one]
       ring
@@ -411,17 +394,16 @@ lemma splitNth_two_eval_sub (f : 𝔽[X]) (x : 𝔽) :
     simp [eval_add, hp, hq]
     ring
   | h_monomial n a =>
-    simp [splitNth_monomial, eval_monomial]
     rcases Nat.even_or_odd n with ⟨k, hk⟩ | ⟨k, hk⟩
     · -- even case: contributes 0 to the odd part
       subst hk
-      simp [splitNth_monomial_even]
+      simp [splitNth_monomial_even, eval_monomial]
       ring_nf
       simp [neg_pow, even_two_mul]
       ring
     · -- odd case: n = 2k+1
       subst hk
-      simp [splitNth_monomial_odd]
+      simp [splitNth_monomial_odd, eval_monomial]
       ring_nf
       simp [neg_pow, odd_two_mul_add_one]
       ring
