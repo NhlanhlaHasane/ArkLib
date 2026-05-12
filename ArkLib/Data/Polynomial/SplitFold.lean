@@ -346,19 +346,12 @@ Addresses: https://github.com/Verified-zkEVM/ArkLib/issues/450
 
 variable {𝔽 : Type*} [Field 𝔽]
 
-/-- Lemma 1: `splitNth` commutes with evaluation at `s ^ n`
-
-The `n`-th split component of `f`, when viewed as a polynomial in `X^n`
-(i.e., via `eval₂ C (X ^ n)`), evaluates at `s` the same way as evaluating
-the component directly at `s ^ n`.
-
-This follows from the universal property of `eval₂`: substituting `X ↦ X^n`
-then evaluating at `s` is the same as evaluating at `s^n` directly, because
-`(X^n).eval s = s^n`. -/
+/-- Helper lemma: `splitNth` of monomial at even position -/
 lemma splitNth_monomial_even (a : 𝔽) (k : ℕ) :
     splitNth (monomial (2 * k) a) 2 0 = monomial k a := by
   ext j; simp [splitNth_def, coeff_monomial]; omega
 
+/-- Helper lemma: `splitNth` of monomial at odd position -/
 lemma splitNth_monomial_odd (a : 𝔽) (k : ℕ) :
     splitNth (monomial (2 * k + 1) a) 2 1 = monomial k a := by
   ext j; simp [splitNth_def, coeff_monomial]; omega
@@ -382,15 +375,7 @@ For any polynomial `f` and field element `x`,
 `f(x) + f(-x) = 2 * (even part of f)(x²)`
 
 where the "even part" is `splitNth f 2 0` — the sub-polynomial collecting all
-coefficients of `f` at even-degree positions.
-
-**Proof sketch**: Write `f = Σ aₙ Xⁿ`. Then
-- `f(x)   = Σ aₙ xⁿ`
-- `f(-x)  = Σ aₙ (-x)ⁿ = Σ aₙ (-1)ⁿ xⁿ`
-- `f(x) + f(-x) = 2 Σ_{k even} a_k x^k = 2 Σ_j a_{2j} x^{2j}`
-
-By definition `splitNth f 2 0 = Σ_j a_{2j} X^j`, so its evaluation at `x²`
-gives `Σ_j a_{2j} x^{2j}`, matching the right-hand side. -/
+coefficients of `f` at even-degree positions. -/
 lemma splitNth_two_eval_add (f : 𝔽[X]) (x : 𝔽) :
     f.eval x + f.eval (-x) = 2 * (splitNth f 2 0).eval (x ^ 2) := by
   induction f using Polynomial.induction_on' with
@@ -418,13 +403,7 @@ lemma splitNth_two_eval_add (f : 𝔽[X]) (x : 𝔽) :
 For any polynomial `f` and field element `x`,
 `f(x) - f(-x) = 2 * x * (odd part of f)(x²)`
 
-where the "odd part" is `splitNth f 2 1` — collecting coefficients at odd positions.
-
-**Proof sketch**: Similarly to Lemma 2,
-- `f(x) - f(-x) = 2 Σ_{k odd} a_k x^k = 2 Σ_j a_{2j+1} x^{2j+1} = 2x Σ_j a_{2j+1} x^{2j}`
-
-By definition `splitNth f 2 1 = Σ_j a_{2j+1} X^j`, so evaluated at `x²` gives
-`Σ_j a_{2j+1} x^{2j}`, and multiplying by `2x` gives the right-hand side. -/
+where the "odd part" is `splitNth f 2 1` — collecting coefficients at odd positions. -/
 lemma splitNth_two_eval_sub (f : 𝔽[X]) (x : 𝔽) :
     f.eval x - f.eval (-x) = 2 * x * (splitNth f 2 1).eval (x ^ 2) := by
   induction f using Polynomial.induction_on' with
@@ -440,7 +419,7 @@ lemma splitNth_two_eval_sub (f : 𝔽[X]) (x : 𝔽) :
       ring_nf
       simp [neg_pow, even_two_mul]
       ring
-    · -- odd case: n = 2k+1, coefficient lands in splitNth f 2 1 at index k
+    · -- odd case: n = 2k+1
       subst hk
       simp [splitNth_monomial_odd]
       ring_nf
@@ -450,6 +429,16 @@ lemma splitNth_two_eval_sub (f : 𝔽[X]) (x : 𝔽) :
 /-- Lemma 4: FRI folding evaluation
 
 The main result: `foldNth 2 f β` evaluated at `x²` equals the standard
-FRI fold formula in terms of `f(x)` and `f(-x)`.
+FRI fold formula in terms of `f(x)` and `f(-x)`. -/
+lemma foldNth_two_eval (f : 𝔽[X]) (x β : 𝔽)
+    (hx : x ≠ 0) (h2 : (2 : 𝔽) ≠ 0) :
+    (foldNth 2 f β).eval (x ^ 2) =
+    (f.eval x + f.eval (-x) +
+      β * (f.eval x - f.eval (-x)) * x⁻¹) * (2 : 𝔽)⁻¹ := by
+  rw [foldNth_eq_sum_splitNth]
+  simp only [Fin.sum_univ_two, eval_add, eval_mul, eval_pow, eval_X]
+  rw [← splitNth_two_eval_add, ← splitNth_two_eval_sub]
+  field_simp
+  ring
 
-**Statement**:
+end Polynomial
