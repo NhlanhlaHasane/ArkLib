@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
+import ArkLib.OracleReduction.ProtocolSpec.SeqCompose
 
 /-!
 ### OracleReduction.Basic — Conceptual Overview
@@ -199,8 +200,6 @@ If you extend this file, please:
 - Reference this module docstring when writing protocol-specific documentation.
 -/
 
-
-import ArkLib.OracleReduction.ProtocolSpec.SeqCompose
 
 /-!
 # Interactive (Oracle) Reductions
