@@ -327,7 +327,11 @@ lemma splitNth_eval_comp_pow {n : ℕ} [NeZero n] (f : 𝔽[X]) (x : 𝔽) (i : 
   rw [← eval]
   simp
 
+def foldNth (n : ℕ) (f : 𝔽[X]) (β : 𝔽) [NeZero n] : 𝔽[X] :=
+  ∑ i : Fin n, β ^ i.val * splitNth f n i
 
+lemma foldNth_eq_sum_splitNth {n : ℕ} [NeZero n] (f : 𝔽[X]) (β : 𝔽) :
+    foldNth n f β = ∑ i : Fin n, β ^ i.val * splitNth f n i := rfl
 /-!
 # Evaluation-level lemmas for `splitNth` and `foldNth`
 
@@ -355,6 +359,8 @@ variable {𝔽 : Type*} [Field 𝔽]
 The `n`-th split component of `f`, when viewed as a polynomial in `X^n`
 (i.e., via `eval₂ C (X ^ n)`), evaluates at `s` the same way as evaluating
 the component directly at `s ^ n`.
+
+
 
 This follows from the universal property of `eval₂`: substituting `X ↦ X^n`
 then evaluating at `s` is the same as evaluating at `s^n` directly, because
