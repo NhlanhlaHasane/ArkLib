@@ -359,12 +359,19 @@ the component directly at `s ^ n`.
 This follows from the universal property of `eval₂`: substituting `X ↦ X^n`
 then evaluating at `s` is the same as evaluating at `s^n` directly, because
 `(X^n).eval s = s^n`.
--/
-lemma splitNth_eval_comp_pow (n : ℕ) (hn : n ≠ 0) (f : 𝔽[X]) (s : 𝔽) (i : Fin n) :
-    (eval₂ C (X ^ n) (splitNth f n i)).eval s = (splitNth f n i).eval (s ^ n) := by
-  simp [eval₂_eq_eval_map, Polynomial.map_pow, eval_pow, eval_X]
+lemma splitNth_monomial_even (a : 𝔽) (k : ℕ) :
+    splitNth (monomial (2 * k) a) 2 0 = monomial k a := by
+  ext j; simp [splitNth_def, coeff_monomial]; omega
 
-/-!
+lemma splitNth_monomial_odd (a : 𝔽) (k : ℕ) :
+    splitNth (monomial (2 * k + 1) a) 2 1 = monomial k a := by
+  ext j; simp [splitNth_def, coeff_monomial]; omega
+
+def foldNth (n : ℕ) (f : 𝔽[X]) (β : 𝔽) [NeZero n] : 𝔽[X] :=
+  ∑ i : Fin n, β ^ i.val * splitNth f n i
+
+lemma foldNth_eq_sum_splitNth {n : ℕ} [NeZero n] (f : 𝔽[X]) (β : 𝔽) :
+    foldNth n f β = ∑ i : Fin n, β ^ i.val * splitNth f n i := rfl
 ## Lemma 2: Even evaluation identity
 
 For any polynomial `f` and field element `x`,
