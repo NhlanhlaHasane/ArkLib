@@ -127,7 +127,7 @@ algorithm.
 set_option linter.style.induction false
 set_option linter.unusedDecidableInType false
 set_option linter.unusedFintypeInType false
-set_option linter.style.longFile 1700
+set_option linter.style.longFile 1900
 
 namespace ReedSolomon
 
@@ -213,6 +213,13 @@ lemma mem_finset_iff_exists {ω : FftDomain ι F} {x : F} :
 omit [DecidableEq ι] in
 lemma mem_finset_iff_mem_domain {ω : FftDomain ι F} {x : F} :
   x ∈ ω.toFinset ↔ x ∈ ω := by simp [toFinset, mem_domain_iff_exists]
+
+omit [DecidableEq ι] in
+@[simp high]
+lemma mem_domain_finset_self {ω : FftDomain ι F} {i : ι} :
+  ω i ∈ ω.toFinset := by 
+  rw [mem_finset_iff_mem_domain]
+  simp
 
 end FftDomain
 
@@ -521,6 +528,13 @@ lemma mem_coset_finset_iff_mem_coset_domain {ω : CosetFftDomain ι F}
   {x : F} :
   x ∈ ω.toFinset ↔ x ∈ ω := by simp [mem_coset_domain]
 
+omit [DecidableEq ι] in
+@[simp high]
+lemma mem_coset_finset_self {ω : CosetFftDomain ι F} {i : ι} :
+  ω i ∈ ω.toFinset := by 
+  rw [mem_coset_finset_iff_mem_coset_domain]
+  simp
+
 end CosetFftDomain
 
 instance {x : F} {ω : CosetFftDomain ι F} : Decidable (x ∈ ω) :=
@@ -631,6 +645,43 @@ abbrev SmoothCosetFftDomain (n : ℕ) (F : Type) [Field F] : Type :=
   CosetFftDomain (Fin (2 ^ n)) F
 
 namespace FftDomain
+
+private def logAux {n : ℕ} (ω : SmoothFftDomain n F)
+  (x : ω) (fuel : ℕ) : Fin (2 ^ n) := 
+  match fuel with
+  | 0 => default
+  | fuel + 1 => 
+    if h : fuel < 2 ^ n then
+      if ω ⟨fuel, h⟩ = x then ⟨fuel, h⟩ else logAux ω x fuel
+    else logAux ω x fuel
+
+/-- Finds a preimage of `x` under the mapping `ω`. -/
+def log {n : ℕ} (ω : SmoothFftDomain n F) (x : ω) : Fin (2 ^ n) := 
+  logAux ω x (2 ^ n)
+
+@[simp]
+lemma log_right_inverse' {n : ℕ} {ω : SmoothFftDomain n F} {x : ω} :
+  ω (ω.log x) = x := by 
+  have h_log : ∃ i : Fin (2 ^ n), ω i = x := by
+    exact Finset.mem_image.mp x.2 |> fun ⟨i, _, hi⟩ ↦ ⟨i, hi⟩
+  obtain ⟨i, hi⟩ := h_log
+  have h_log_aux : 
+    ∀ (fuel : ℕ) (i : Fin (2 ^ n)), 
+      i.val < fuel → ω i = x → ω (FftDomain.logAux ω x fuel) = x := by
+    intro fuel i hi hx
+    induction fuel generalizing i with 
+    | zero => simp_all 
+    | succ fuel ih => 
+      simp [FftDomain.logAux]
+      grind
+  exact h_log_aux _ _ (Fin.is_lt i) hi
+
+lemma log_right_inverse {n : ℕ} {ω : SmoothFftDomain n F} : 
+  Function.RightInverse ω.log (fun x ↦ ⟨ω x, by simp⟩) := fun x ↦ by simp
+
+lemma log_left_inverse {n : ℕ} {ω : SmoothFftDomain n F} : 
+  Function.LeftInverse ω.log (fun x ↦ ⟨ω x, by simp⟩) := 
+    fun x ↦ injective (ω := ω) (by simp)
 
 private def subdomain_embed {n : ℕ} (i : Fin n.succ) (k : Fin (2 ^ (i : ℕ))) :
   Fin (2 ^ n) :=
@@ -1077,6 +1128,48 @@ lemma subdomainNatReversed_mem_of_eq {n m k} {ω : SmoothFftDomain n F}
   x ∈ ω.subdomainNatReversed m ↔ x ∈ ω.subdomainNatReversed k := by
   aesop (add simp [subdomainNatReversed, subdomainNat])
 
+def twoNthRootAux (n i : ℕ) (ω : SmoothFftDomain n F)
+  (x : F) (fuel : ℕ) : ω :=
+  match fuel with
+  | 0 => default
+  | fuel + 1 => 
+    if h : fuel < 2 ^ n then
+      if (ω ⟨fuel, h⟩) ^ 2 ^ i = x  
+      then ⟨ω ⟨fuel, h⟩, by simp⟩
+      else twoNthRootAux n i ω x fuel 
+    else default
+
+/-- Finds a `2 ^ n`th root of `x`. -/
+def twoNthRoot {n i : ℕ} {ω : SmoothFftDomain n F}
+  (x : ω.subdomainNatReversed i) : ω :=
+  twoNthRootAux n i ω x.1 (2 ^ n)
+
+private lemma twoNthRootAux_correct {n i : ℕ} {ω : SmoothFftDomain n F}
+  (x : F) (fuel : ℕ) (hfuel : fuel ≤ 2 ^ n)
+  (hexists : ∃ j : Fin (2 ^ n), j.val < fuel ∧ (ω j) ^ 2 ^ i = x) :
+  (twoNthRootAux n i ω x fuel).val ^ 2 ^ i = x := by
+  obtain ⟨j, hj₁, hj₂⟩ := hexists
+  induction fuel generalizing j with
+  | zero => contradiction
+  | succ fuel ih => 
+    aesop 
+      (add simp [twoNthRootAux]) 
+      (add safe (by grind))
+
+lemma twoNthRoot_correct {n i : ℕ} {ω : SmoothFftDomain n F}
+  (hi : i ≤ n)
+  {x : ω.subdomainNatReversed i} :
+  (twoNthRoot x).val ^ 2 ^ i = x := by
+  unfold twoNthRoot
+  have hx_mem : x.val ∈ ω.subdomainNatReversed (0 + i) := by
+    rw [Nat.zero_add, ←mem_finset_iff_mem_domain]
+    exact x.property
+  have hex := subdomainNatReversed_root_exists (by omega) hx_mem
+  obtain ⟨y, hy_mem, hy_pow⟩ := hex
+  rw [subdomainNatReversed_zero, mem_domain_iff_exists] at hy_mem
+  obtain ⟨j, rfl⟩ := hy_mem
+  exact twoNthRootAux_correct _ _ le_rfl ⟨j, j.isLt, hy_pow⟩
+
 end FftDomain
 
 namespace CosetFftDomain
@@ -1090,6 +1183,43 @@ lemma size_of_smooth_coset_domain_eq_pow_of_2 {n : ℕ} {ω : SmoothCosetFftDoma
   Finset.card ω.toFinset = 2 ^ n := by
   aesop
     (add simp [CosetFftDomain.toFinset, Finset.card_image_of_injective, CosetFftDomain.injective])
+
+private def logAux {n : ℕ} (ω : SmoothCosetFftDomain n F)
+  (x : ω) (fuel : ℕ) : Fin (2 ^ n) := 
+  match fuel with
+  | 0 => default
+  | fuel + 1 => 
+    if h : fuel < 2 ^ n then
+      if ω ⟨fuel, h⟩ = x then ⟨fuel, h⟩ else logAux ω x fuel
+    else logAux ω x fuel
+
+/-- Finds a preimage of `x` under the mapping `ω`. -/
+def log {n : ℕ} (ω : SmoothCosetFftDomain n F) (x : ω) : Fin (2 ^ n) := 
+  logAux ω x (2 ^ n)
+
+@[simp]
+lemma log_right_inverse' {n : ℕ} {ω : SmoothCosetFftDomain n F} {x : ω} :
+  ω (ω.log x) = x := by 
+  have h_log : ∃ i : Fin (2 ^ n), ω i = x := by
+    exact Finset.mem_image.mp x.2 |> fun ⟨i, _, hi⟩ ↦ ⟨i, hi⟩
+  obtain ⟨i, hi⟩ := h_log
+  have h_log_aux : 
+    ∀ (fuel : ℕ) (i : Fin (2 ^ n)), 
+      i.val < fuel → ω i = x → ω (CosetFftDomain.logAux ω x fuel) = x := by
+    intro fuel i hi hx
+    induction fuel generalizing i with 
+    | zero => simp_all 
+    | succ fuel ih => 
+      simp [CosetFftDomain.logAux]
+      grind
+  exact h_log_aux _ _ (Fin.is_lt i) hi
+
+lemma log_right_inverse {n : ℕ} {ω : SmoothCosetFftDomain n F} : 
+  Function.RightInverse ω.log (fun x ↦ ⟨ω x, by simp⟩) := fun x ↦ by simp
+
+lemma log_left_inverse {n : ℕ} {ω : SmoothCosetFftDomain n F} : 
+  Function.LeftInverse ω.log (fun x ↦ ⟨ω x, by simp⟩) := 
+    fun x ↦ injective (ω := ω) (by simp)
 
 /-- Given a smooth coset FFT domain `ω` of log-order `n` returns
   a subdomain of log-order `i`. -/
@@ -1593,6 +1723,48 @@ lemma subdomainNatReversed_mem_of_eq {n m k} {ω : SmoothCosetFftDomain n F}
   aesop (add simp [subdomainNatReversed, subdomainNat])
 
 end
+
+def twoNthRootAux (n i : ℕ) (ω : SmoothCosetFftDomain n F)
+  (x : F) (fuel : ℕ) : ω :=
+  match fuel with
+  | 0 => default
+  | fuel + 1 => 
+    if h : fuel < 2 ^ n then
+      if (ω ⟨fuel, h⟩) ^ 2 ^ i = x  
+      then ⟨ω ⟨fuel, h⟩, by simp⟩
+      else twoNthRootAux n i ω x fuel 
+    else default
+
+/-- Finds a `2 ^ n`th root of `x`. -/
+def twoNthRoot {n i : ℕ} {ω : SmoothCosetFftDomain n F}
+  (x : ω.subdomainNatReversed i) : ω :=
+  twoNthRootAux n i ω x.1 (2 ^ n)
+
+private lemma twoNthRootAux_correct {n i : ℕ} {ω : SmoothCosetFftDomain n F}
+  (x : F) (fuel : ℕ) (hfuel : fuel ≤ 2 ^ n)
+  (hexists : ∃ j : Fin (2 ^ n), j.val < fuel ∧ (ω j) ^ 2 ^ i = x) :
+  (twoNthRootAux n i ω x fuel).val ^ 2 ^ i = x := by
+  obtain ⟨j, hj₁, hj₂⟩ := hexists
+  induction fuel generalizing j with
+  | zero => contradiction
+  | succ fuel ih => 
+    aesop 
+      (add simp [twoNthRootAux]) 
+      (add safe (by grind))
+
+lemma twoNthRoot_correct {n i : ℕ} {ω : SmoothCosetFftDomain n F}
+  (hi : i ≤ n)
+  {x : ω.subdomainNatReversed i} :
+  (twoNthRoot x).val ^ 2 ^ i = x := by
+  unfold twoNthRoot
+  have hx_mem : x.val ∈ ω.subdomainNatReversed (0 + i) := by
+    rw [Nat.zero_add, ←mem_coset_finset_iff_mem_coset_domain]
+    exact x.property
+  have hex := subdomainNatReversed_root_exists (by omega) hx_mem
+  obtain ⟨y, hy_mem, hy_pow⟩ := hex
+  rw [subdomainNatReversed_zero, mem_coset_def] at hy_mem
+  obtain ⟨j, rfl⟩ := hy_mem
+  exact twoNthRootAux_correct _ _ le_rfl ⟨j, j.isLt, hy_pow⟩
 
 end CosetFftDomain
 
