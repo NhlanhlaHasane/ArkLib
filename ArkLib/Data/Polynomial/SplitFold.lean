@@ -85,6 +85,12 @@ def splitNth (f : 𝔽[X]) (n : ℕ) [inst : NeZero n] : Fin n → 𝔽[X] :=
             simp [this]
       ⟩
 
+/-- The coefficient of `splitNth f n i` at position `j` equals `f.coeff (j * n + i.val)`. -/
+omit [NoZeroDivisors 𝔽] in
+lemma splitNth_coeff (f : 𝔽[X]) (n : ℕ) [NeZero n] (i : Fin n) (j : ℕ) :
+    (splitNth f n i).coeff j = f.coeff (j * n + i.val) := by
+  simp [splitNth, Polynomial.coeff_ofFinsupp]
+
 /- Proof of key identity `splitNth` has to satisfy. -/
 omit [NoZeroDivisors 𝔽] in
 lemma splitNth_def (n : ℕ) (f : 𝔽[X]) [inst : NeZero n] :
@@ -170,7 +176,8 @@ lemma splitNth_def (n : ℕ) (f : 𝔽[X]) [inst : NeZero n] :
             Nat.sub_add_comm (Nat.mul_le_mul (Nat.div_le_div_right h₁') (by rfl))
           rw [this, ←Nat.sub_mul]
         rw [eq2] at h₂
-        have eq3 : ((e / n) - (b / n)) * n + e % n - b % n = ((e / n - b / n) * n) + (e % n - b % n) :=
+        have eq3 : ((e / n) - (b / n)) * n + e % n - b % n =
+            ((e / n - b / n) * n) + (e % n - b % n) :=
           Nat.add_sub_assoc h' ((e / n - b / n) * n)
         rw [eq3] at h₂
         rw [Nat.mul_add_mod_self_right] at h₂
@@ -330,124 +337,124 @@ section EvalLemmas
 
 variable {F : Type*} [Field F]
 
-/-- `foldNth n f r` is the linear combination of the n-way splits of `f` using
-powers of `r`:
-`foldNth n f r = ∑ i : Fin n, r ^ i * splitNth f n i`
+/-- `foldNth n f r` is the linear combination of the n-way splits of `f` using powers of `r`:
+`foldNth n f r = ∑ i : Fin n, C (r ^ i) * splitNth f n i`
 
 This is the core operation in FRI-style polynomial commitment schemes. -/
-def foldNth (n : ℕ) (f : F[X]) (r : F) [NeZero n] : F[X] :=
-  ∑ i : Fin n, r ^ i.val • splitNth f n i
+noncomputable def foldNth (n : ℕ) (f : F[X]) (r : F) [NeZero n] : F[X] :=
+  ∑ i : Fin n, Polynomial.C (r ^ i.val) * splitNth f n i
 
 lemma foldNth_eq_sum_splitNth {n : ℕ} [NeZero n] (f : F[X]) (r : F) :
-    foldNth n f r = ∑ i : Fin n, r ^ i.val • splitNth f n i :=
+    foldNth n f r = ∑ i : Fin n, Polynomial.C (r ^ i.val) * splitNth f n i :=
   rfl
 
-/-- `splitNth` of a monomial at an even position: the even-indexed coefficient strip. -/
+/-- `splitNth` of a monomial at an even position. -/
 lemma splitNth_monomial_even (a : F) (k : ℕ) :
     splitNth (monomial (2 * k) a) 2 0 = monomial k a := by
   ext j
-  simp only [splitNth, coeff_ofFinsupp, Finsupp.coe_mk, coeff_monomial]
-  constructor
-  · intro h
-    simp only [Nat.mul_add_mod_self_right] at h
-    omega
-  · intro h
-    subst h
-    simp [Nat.mul_add_mod_self_right]
+  rw [splitNth_coeff, coeff_monomial, coeff_monomial]
+  simp only [Fin.val_zero]
+  -- goal: (if j * 2 + 0 = 2 * k then a else 0) = (if j = k then a else 0)
+  split_ifs with h₁ h₂ h₂
+  · rfl
+  · exact absurd (by omega : j = k) h₂
+  · exact absurd (by omega : j * 2 + 0 = 2 * k) h₁
+  · rfl
 
-/-- `splitNth` of a monomial at an odd position: the odd-indexed coefficient strip. -/
+/-- `splitNth` of a monomial at an odd position. -/
 lemma splitNth_monomial_odd (a : F) (k : ℕ) :
     splitNth (monomial (2 * k + 1) a) 2 1 = monomial k a := by
   ext j
-  simp only [splitNth, coeff_ofFinsupp, Finsupp.coe_mk, coeff_monomial]
-  constructor
-  · intro h
-    have : (2 * j + 1) % 2 = 1 := by omega
-    omega
-  · intro h
-    subst h
-    simp [show (2 * k + 1) % 2 = 1 by omega, show (2 * k + 1) / 2 = k by omega]
+  rw [splitNth_coeff, coeff_monomial, coeff_monomial]
+  simp only [Fin.val_one]
+  -- goal: (if j * 2 + 1 = 2 * k + 1 then a else 0) = (if j = k then a else 0)
+  split_ifs with h₁ h₂ h₂
+  · rfl
+  · exact absurd (by omega : j = k) h₂
+  · exact absurd (by omega : j * 2 + 1 = 2 * k + 1) h₁
+  · rfl
 
 /-- For any polynomial `f` and field element `x`,
-`f(x) + f(-x) = 2 * (splitNth f 2 0)(x²)`.
-
-The even part of `f` evaluated at `x²` recovers the symmetric sum. -/
+`f(x) + f(-x) = 2 * (splitNth f 2 0)(x²)`. -/
 lemma splitNth_two_eval_add (f : F[X]) (x : F) :
     f.eval x + f.eval (-x) = 2 * (splitNth f 2 0).eval (x ^ 2) := by
   induction f using Polynomial.induction_on' with
   | h_add p q hp hq =>
-    simp only [eval_add, hp, hq]
+    simp only [eval_add]
+    rw [hp, hq]
     ring
   | h_monomial n a =>
     rcases Nat.even_or_odd n with ⟨k, hk⟩ | ⟨k, hk⟩
-    · subst hk
-      simp only [splitNth_monomial_even, eval_monomial, neg_pow, even_two_mul, if_true]
+    · -- n = 2k: even monomial
+      subst hk
+      rw [splitNth_monomial_even]
+      simp only [eval_monomial]
+      have heven : (-x) ^ (2 * k) = x ^ (2 * k) := neg_pow_eq_pow_of_even (even_two_mul k) x
+      rw [heven]
       ring
-    · subst hk
-      have hodd : ¬ Even (2 * k + 1) := by omega
-      simp only [splitNth, coeff_ofFinsupp, Finsupp.coe_mk, eval_monomial, neg_pow]
-      have : (2 * k + 1) % 2 = 1 := by omega
-      -- odd power: x^(2k+1) + (-x)^(2k+1) = 0
-      have hodd_pow : (-x) ^ (2 * k + 1) = -(x ^ (2 * k + 1)) := by
-        rw [neg_pow, if_neg hodd]
-      simp only [hodd_pow]
-      -- the odd strip contributes 0 to splitNth _ 2 0
-      have hzero : (splitNth (monomial (2 * k + 1) a) 2 0).eval (x ^ 2) = 0 := by
-        have : splitNth (monomial (2 * k + 1) a) 2 (0 : Fin 2) = 0 := by
-          ext j
-          simp only [splitNth, coeff_ofFinsupp, Finsupp.coe_mk, coeff_monomial, coeff_zero]
-          intro h
-          have : (2 * k + 1) % 2 = 1 := by omega
-          simp only [show (0 : Fin 2).val = 0 from rfl] at h
-          omega
-        rw [this, eval_zero]
-      simp [hzero, eval_monomial]
+    · -- n = 2k+1: odd monomial, the even strip is zero
+      subst hk
+      have hzero : splitNth (monomial (2 * k + 1) a) 2 (0 : Fin 2) = 0 := by
+        ext j
+        rw [splitNth_coeff, coeff_monomial, coeff_zero]
+        simp only [Fin.val_zero]
+        -- j * 2 + 0 = 2k+1 is impossible by parity
+        split_ifs with h
+        · omega
+        · rfl
+      rw [hzero, eval_zero, mul_zero]
+      simp only [eval_monomial]
+      have hodd : (-x) ^ (2 * k + 1) = -(x ^ (2 * k + 1)) :=
+        Odd.neg_pow (odd_two_mul_add_one k) x
+      rw [hodd]
       ring
 
 /-- For any polynomial `f` and field element `x`,
-`f(x) - f(-x) = 2 * x * (splitNth f 2 1)(x²)`.
-
-The odd part of `f` evaluated at `x²` recovers the antisymmetric difference. -/
+`f(x) - f(-x) = 2 * x * (splitNth f 2 1)(x²)`. -/
 lemma splitNth_two_eval_sub (f : F[X]) (x : F) :
     f.eval x - f.eval (-x) = 2 * x * (splitNth f 2 1).eval (x ^ 2) := by
   induction f using Polynomial.induction_on' with
   | h_add p q hp hq =>
-    simp only [eval_add, hp, hq]
+    simp only [eval_add]
+    rw [hp, hq]
     ring
   | h_monomial n a =>
     rcases Nat.even_or_odd n with ⟨k, hk⟩ | ⟨k, hk⟩
-    · subst hk
-      -- even strip: f(x) - f(-x) = 0, odd part is 0
-      have heven_pow : (-x) ^ (2 * k) = x ^ (2 * k) := by
-        rw [neg_pow, if_pos ⟨k, rfl⟩]
-      have hzero : (splitNth (monomial (2 * k) a) 2 (1 : Fin 2)).eval (x ^ 2) = 0 := by
-        have : splitNth (monomial (2 * k) a) 2 (1 : Fin 2) = 0 := by
-          ext j
-          simp only [splitNth, coeff_ofFinsupp, Finsupp.coe_mk, coeff_monomial, coeff_zero]
-          intro h
-          have : (2 * k) % 2 = 0 := by omega
-          simp only [show (1 : Fin 2).val = 1 from rfl] at h
-          omega
-        rw [this, eval_zero]
-      simp only [eval_monomial, heven_pow, hzero]
+    · -- n = 2k: even monomial, the odd strip is zero
+      subst hk
+      have hzero : splitNth (monomial (2 * k) a) 2 (1 : Fin 2) = 0 := by
+        ext j
+        rw [splitNth_coeff, coeff_monomial, coeff_zero]
+        simp only [Fin.val_one]
+        -- j * 2 + 1 = 2k is impossible by parity
+        split_ifs with h
+        · omega
+        · rfl
+      rw [hzero, eval_zero, mul_zero]
+      simp only [eval_monomial]
+      have heven : (-x) ^ (2 * k) = x ^ (2 * k) := neg_pow_eq_pow_of_even (even_two_mul k) x
+      rw [heven]
       ring
-    · subst hk
-      -- odd case: use splitNth_monomial_odd
-      simp only [splitNth_monomial_odd, eval_monomial]
-      have hodd : ¬ Even (2 * k + 1) := by omega
-      rw [neg_pow, if_neg hodd]
+    · -- n = 2k+1: odd monomial
+      subst hk
+      rw [splitNth_monomial_odd]
+      simp only [eval_monomial]
+      have hodd : (-x) ^ (2 * k + 1) = -(x ^ (2 * k + 1)) :=
+        Odd.neg_pow (odd_two_mul_add_one k) x
+      rw [hodd]
+      -- x^(2k+1) = x * (x^2)^k
+      have hpow : x ^ (2 * k + 1) = x * (x ^ 2) ^ k := by ring
+      rw [hpow]
       ring
 
 /-- The main FRI folding evaluation identity:
-`(foldNth 2 f r)(x²) = (f(x) + f(-x) + r * (f(x) - f(-x)) / x) / 2`.
-
-This connects `foldNth` to the standard FRI fold formula. -/
+`(foldNth 2 f r)(x²) = (f(x) + f(-x) + r * (f(x) - f(-x)) / x) / 2`. -/
 lemma foldNth_two_eval (f : F[X]) (x r : F) (hx : x ≠ 0) (h2 : (2 : F) ≠ 0) :
     (foldNth 2 f r).eval (x ^ 2) =
       (f.eval x + f.eval (-x) + r * (f.eval x - f.eval (-x)) * x⁻¹) * (2 : F)⁻¹ := by
   rw [foldNth_eq_sum_splitNth]
-  simp only [Fin.sum_univ_two, eval_add, eval_smul, smul_eq_mul, Fin.val_zero, Fin.val_one,
-    pow_zero, pow_one, one_mul]
+  simp only [Fin.sum_univ_two, eval_add, eval_mul, eval_C,
+    Fin.val_zero, Fin.val_one, pow_zero, pow_one, one_mul]
   rw [← splitNth_two_eval_add, ← splitNth_two_eval_sub]
   field_simp
   ring
